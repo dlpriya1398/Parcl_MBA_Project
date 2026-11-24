@@ -13,67 +13,108 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Custom Soft Pastel CSS styling for polished UI
+# Custom Vibrant & Colorful CSS Styling
 st.markdown("""
 <style>
-    /* Main App Background & Text */
+    /* Main App Background & Fonts */
     .stApp {
-        background-color: #FAF8F5;
-        color: #2D3748;
+        background: linear-gradient(180deg, #F8FAFC 0%, #F1F5F9 100%);
+        font-family: 'Inter', sans-serif;
     }
     
-    /* Main Header & Sub-header */
-    .main-header {
-        font-size: 2.3rem;
-        font-weight: 700;
-        color: #4A5568;
-        margin-bottom: 0.2rem;
+    /* Hero Header Banner */
+    .hero-banner {
+        background: linear-gradient(135deg, #4F46E5 0%, #7C3AED 40%, #EC4899 100%);
+        padding: 24px 32px;
+        border-radius: 16px;
+        color: white;
+        box-shadow: 0 10px 25px -5px rgba(124, 58, 237, 0.3);
+        margin-bottom: 25px;
     }
-    .sub-header {
-        font-size: 1.05rem;
-        color: #718096;
-        margin-bottom: 1.5rem;
+    .hero-title {
+        font-size: 2.4rem;
+        font-weight: 800;
+        margin: 0;
+        letter-spacing: -0.5px;
+        color: #FFFFFF !important;
+    }
+    .hero-subtitle {
+        font-size: 1.1rem;
+        font-weight: 400;
+        opacity: 0.92;
+        margin-top: 6px;
+        color: #F3E8FF !important;
     }
     
-    /* Metric Cards with Pastel Card Borders & Shadows */
+    /* Styled Metric Cards with Color Accents */
     div[data-testid="stMetric"] {
-        background-color: #FFFFFF;
-        border: 1px solid #E2E8F0;
-        border-radius: 12px;
-        padding: 15px 20px;
-        box-shadow: 0 4px 6px -1px rgba(184, 192, 255, 0.15);
+        background: #FFFFFF;
+        border-radius: 14px;
+        padding: 18px 22px;
+        border-left: 6px solid #6366F1;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    div[data-testid="stMetric"]:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(99, 102, 241, 0.15);
     }
     
-    /* Sidebar Soft Background */
+    /* Custom Sidebar Styling */
     section[data-testid="stSidebar"] {
-        background-color: #F0F4F8;
+        background: #0F172A;
+        color: #F8FAFC;
+    }
+    section[data-testid="stSidebar"] .stMarkdown h1, 
+    section[data-testid="stSidebar"] .stMarkdown h2, 
+    section[data-testid="stSidebar"] .stMarkdown h3,
+    section[data-testid="stSidebar"] label {
+        color: #E2E8F0 !important;
     }
     
-    /* Custom Pastel Tabs */
+    /* Tab Styling with Vibrant Active State */
     .stTabs [data-baseweb="tab-list"] {
-        gap: 8px;
+        gap: 10px;
+        background-color: #E2E8F0;
+        padding: 6px;
+        border-radius: 12px;
     }
     .stTabs [data-baseweb="tab"] {
-        background-color: #E2E8F0;
-        border-radius: 8px 8px 0px 0px;
-        padding: 10px 18px;
-        color: #4A5568;
+        height: 45px;
+        border-radius: 8px;
+        color: #475569;
         font-weight: 600;
+        border: none;
     }
     .stTabs [aria-selected="true"] {
-        background-color: #B8C0FF !important;
-        color: #1A202C !important;
+        background: linear-gradient(135deg, #6366F1 0%, #4F46E5 100%) !important;
+        color: #FFFFFF !important;
         font-weight: 700;
+        box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
     }
+    
+    /* Recommendation Cards */
+    .rec-card {
+        background-color: #FFFFFF;
+        border-radius: 12px;
+        padding: 20px;
+        border: 1px solid #E2E8F0;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+        margin-bottom: 15px;
+    }
+    .rec-card-header-1 { color: #2563EB; font-weight: 700; font-size: 1.15rem; }
+    .rec-card-header-2 { color: #059669; font-weight: 700; font-size: 1.15rem; }
+    .rec-card-header-3 { color: #EA580C; font-weight: 700; font-size: 1.15rem; }
+    .rec-card-header-4 { color: #C026D3; font-weight: 700; font-size: 1.15rem; }
 </style>
 """, unsafe_allow_html=True)
 
-# Pastel Color Palette Definitions
-PASTEL_PERSONA_MAP = {
-    'C1: Global Investors': '#B8C0FF',   # Soft Periwinkle Blue
-    'C2: First-Time Buyers': '#FFD6A5',  # Soft Peach
-    'C3: Corporate Buyers': '#CAFFBF',   # Soft Mint Green
-    'C4: Luxury Investors': '#FFADAD'    # Soft Pastel Pink
+# Vibrant Color Palette Definitions
+VIBRANT_PERSONA_MAP = {
+    'C1: Global Investors': '#3B82F6',   # Vivid Royal Blue
+    'C2: First-Time Buyers': '#10B981',  # Bright Emerald Green
+    'C3: Corporate Buyers': '#F97316',   # Vibrant Sunset Orange
+    'C4: Luxury Investors': '#D946EF'    # Electric Magenta / Purple
 }
 
 # Data Loading Function
@@ -146,13 +187,16 @@ def load_data():
 
 df_raw = load_data()
 
-# Header Section
-st.markdown("<div class='main-header'>🏢 Parcl Real Estate Market Intelligence</div>", unsafe_allow_html=True)
-st.markdown("<div class='sub-header'>Machine Learning Based Buyer Segmentation & Investment Profiling Dashboard</div>", unsafe_allow_html=True)
-st.divider()
+# Vibrant Hero Banner Header Section
+st.markdown("""
+<div class='hero-banner'>
+    <div class='hero-title'>🏢 Parcl Real Estate Market Intelligence</div>
+    <div class='hero-subtitle'>Machine Learning Based Buyer Segmentation & Investment Profiling Dashboard</div>
+</div>
+""", unsafe_allow_html=True)
 
 # Sidebar Interactive Filters
-st.sidebar.header("🔍 Filter Options")
+st.sidebar.markdown("<h2 style='color: #6366F1;'>🔍 Filter Options</h2>", unsafe_allow_html=True)
 
 all_countries = ['All'] + sorted(list(df_raw['country'].unique()))
 selected_country = st.sidebar.selectbox("Country of Residence", all_countries)
@@ -178,16 +222,16 @@ if selected_purpose != 'All':
 if selected_client_type != 'All':
     df_filtered = df_filtered[df_filtered['client_type'] == selected_client_type]
 
-# KPI Summary Cards
+# Vibrant KPI Summary Cards
 col1, col2, col3, col4 = st.columns(4)
 with col1:
-    st.metric("Total Clients", len(df_filtered))
+    st.metric("Total Clients", f"{len(df_filtered):,}")
 with col2:
     inv_ratio = (df_filtered['acquisition_purpose'] == 'Investment').mean() * 100 if len(df_filtered) > 0 else 0
-    st.metric("Investment Purpose %", f"{inv_ratio:.1f}%")
+    st.metric("Investment Intent", f"{inv_ratio:.1f}%")
 with col3:
     loan_ratio = (df_filtered['loan_applied'] == 'Yes').mean() * 100 if len(df_filtered) > 0 else 0
-    st.metric("Loan Reliance %", f"{loan_ratio:.1f}%")
+    st.metric("Loan Dependency", f"{loan_ratio:.1f}%")
 with col4:
     avg_sat = df_filtered['satisfaction_score'].mean() if len(df_filtered) > 0 else 0
     st.metric("Avg Satisfaction", f"{avg_sat:.2f} / 5.0")
@@ -224,11 +268,11 @@ with tab1:
                 names='Persona',
                 title="Proportion of Buyer Personas",
                 color='Persona',
-                color_discrete_map=PASTEL_PERSONA_MAP,
-                hole=0.4
+                color_discrete_map=VIBRANT_PERSONA_MAP,
+                hole=0.45
             )
-            fig_pie.update_traces(textinfo='percent+label')
-            fig_pie.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
+            fig_pie.update_traces(textinfo='percent+label', textfont_size=13, marker=dict(line=dict(color='#FFFFFF', width=2)))
+            fig_pie.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font=dict(family="Inter"))
             st.plotly_chart(fig_pie, use_container_width=True)
             
         with m1_col2:
@@ -239,14 +283,16 @@ with tab1:
                 color='Persona',
                 title="Client Count by Persona Segment",
                 text='Count',
-                color_discrete_map=PASTEL_PERSONA_MAP
+                color_discrete_map=VIBRANT_PERSONA_MAP
             )
+            fig_bar.update_traces(textposition='outside')
             fig_bar.update_layout(
                 xaxis_title="", 
                 yaxis_title="Number of Clients", 
                 showlegend=False,
                 paper_bgcolor='rgba(0,0,0,0)', 
-                plot_bgcolor='rgba(0,0,0,0)'
+                plot_bgcolor='rgba(0,0,0,0)',
+                font=dict(family="Inter")
             )
             st.plotly_chart(fig_bar, use_container_width=True)
 
@@ -273,9 +319,9 @@ with tab2:
                 barmode='group',
                 title="Mortgage Loan Reliance (Loan Applied)",
                 labels={'buyer_persona': 'Persona Segment', 'count': 'Client Count', 'loan_applied': 'Applied for Loan'},
-                color_discrete_map={'Yes': '#FFADAD', 'No': '#CAFFBF'}
+                color_discrete_map={'Yes': '#F43F5E', 'No': '#10B981'}
             )
-            fig_loan.update_layout(xaxis_title="", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
+            fig_loan.update_layout(xaxis_title="", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font=dict(family="Inter"))
             st.plotly_chart(fig_loan, use_container_width=True)
             
         with m2_col2:
@@ -289,9 +335,9 @@ with tab2:
                 barmode='stack',
                 title="Acquisition Purpose Intent Breakdown",
                 labels={'buyer_persona': 'Persona Segment', 'count': 'Client Count', 'acquisition_purpose': 'Intent'},
-                color_discrete_map={'Investment': '#B8C0FF', 'Personal use': '#FFD6A5'}
+                color_discrete_map={'Investment': '#3B82F6', 'Personal use': '#F59E0B'}
             )
-            fig_purpose.update_layout(xaxis_title="", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
+            fig_purpose.update_layout(xaxis_title="", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font=dict(family="Inter"))
             st.plotly_chart(fig_purpose, use_container_width=True)
 
 # ---------------------------------------------------------
@@ -315,9 +361,9 @@ with tab3:
                 color='buyer_persona',
                 title="Regional Buyer Concentration by Persona",
                 labels={'region': 'Geographic Region', 'count': 'Client Count'},
-                color_discrete_map=PASTEL_PERSONA_MAP
+                color_discrete_map=VIBRANT_PERSONA_MAP
             )
-            fig_geo.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
+            fig_geo.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font=dict(family="Inter"))
             st.plotly_chart(fig_geo, use_container_width=True)
             
         with m3_col2:
@@ -329,9 +375,9 @@ with tab3:
                 locationmode='country names',
                 color='Client Count',
                 title="Global Buyer Origin Density Map",
-                color_continuous_scale='Mint'
+                color_continuous_scale='Plasma'
             )
-            fig_country.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
+            fig_country.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font=dict(family="Inter"))
             st.plotly_chart(fig_country, use_container_width=True)
 
 # ---------------------------------------------------------
@@ -366,24 +412,33 @@ with tab4:
         rec_col1, rec_col2 = st.columns(2)
         with rec_col1:
             st.markdown("""
-            **C1: Global Investors**
-            - *Strategy*: Cross-border yield syndication, tax-optimized currency escrow, high-cap commercial listings.
-            - *Targeting*: International digital marketing in primary global financial hubs.
+            <div class='rec-card'>
+                <div class='rec-card-header-1'>C1: Global Investors</div>
+                <p><b>Strategy</b>: Cross-border yield syndication, tax-optimized currency escrow, high-cap commercial listings.</p>
+                <p><b>Targeting</b>: International digital marketing in primary global financial hubs.</p>
+            </div>
             
-            **C2: First-Time Buyers**
-            - *Strategy*: Embedded mortgage comparison tools, introductory down-payment assistance calculators.
-            - *Targeting*: Social media referral programs and localized housing affordability guides.
-            """)
+            <div class='rec-card'>
+                <div class='rec-card-header-2'>C2: First-Time Buyers</div>
+                <p><b>Strategy</b>: Embedded mortgage comparison tools, introductory down-payment assistance calculators.</p>
+                <p><b>Targeting</b>: Social media referral programs and localized housing affordability guides.</p>
+            </div>
+            """, unsafe_allow_html=True)
+            
         with rec_col2:
             st.markdown("""
-            **C3: Corporate Buyers**
-            - *Strategy*: Institutional API access, bulk multi-unit acquisition discounts, custom compliance reporting.
-            - *Targeting*: Direct B2B enterprise sales and institutional real estate advisory.
+            <div class='rec-card'>
+                <div class='rec-card-header-3'>C3: Corporate Buyers</div>
+                <p><b>Strategy</b>: Institutional API access, bulk multi-unit acquisition discounts, custom compliance reporting.</p>
+                <p><b>Targeting</b>: Direct B2B enterprise sales and institutional real estate advisory.</p>
+            </div>
             
-            **C4: Luxury Investors**
-            - *Strategy*: White-glove private wealth concierge, off-market premier listings, priority investor support.
-            - *Targeting*: Exclusive investor summits and private wealth manager partnerships.
-            """)
+            <div class='rec-card'>
+                <div class='rec-card-header-4'>C4: Luxury Investors</div>
+                <p><b>Strategy</b>: White-glove private wealth concierge, off-market premier listings, priority investor support.</p>
+                <p><b>Targeting</b>: Exclusive investor summits and private wealth manager partnerships.</p>
+            </div>
+            """, unsafe_allow_html=True)
 
 st.sidebar.divider()
 st.sidebar.caption("Parcl Real Estate ML Engine v1.0 | Unified Mentor Capstone")
