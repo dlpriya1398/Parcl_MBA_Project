@@ -13,29 +13,68 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS styling for polished UI
+# Custom Soft Pastel CSS styling for polished UI
 st.markdown("""
 <style>
+    /* Main App Background & Text */
+    .stApp {
+        background-color: #FAF8F5;
+        color: #2D3748;
+    }
+    
+    /* Main Header & Sub-header */
     .main-header {
-        font-size: 2.2rem;
+        font-size: 2.3rem;
         font-weight: 700;
-        color: #1E293B;
+        color: #4A5568;
         margin-bottom: 0.2rem;
     }
     .sub-header {
-        font-size: 1.0rem;
-        color: #64748B;
+        font-size: 1.05rem;
+        color: #718096;
         margin-bottom: 1.5rem;
     }
-    .metric-card {
-        background-color: #F8FAFC;
+    
+    /* Metric Cards with Pastel Card Borders & Shadows */
+    div[data-testid="stMetric"] {
+        background-color: #FFFFFF;
         border: 1px solid #E2E8F0;
-        border-radius: 8px;
-        padding: 15px;
-        text-align: center;
+        border-radius: 12px;
+        padding: 15px 20px;
+        box-shadow: 0 4px 6px -1px rgba(184, 192, 255, 0.15);
+    }
+    
+    /* Sidebar Soft Background */
+    section[data-testid="stSidebar"] {
+        background-color: #F0F4F8;
+    }
+    
+    /* Custom Pastel Tabs */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 8px;
+    }
+    .stTabs [data-baseweb="tab"] {
+        background-color: #E2E8F0;
+        border-radius: 8px 8px 0px 0px;
+        padding: 10px 18px;
+        color: #4A5568;
+        font-weight: 600;
+    }
+    .stTabs [aria-selected="true"] {
+        background-color: #B8C0FF !important;
+        color: #1A202C !important;
+        font-weight: 700;
     }
 </style>
 """, unsafe_allow_html=True)
+
+# Pastel Color Palette Definitions
+PASTEL_PERSONA_MAP = {
+    'C1: Global Investors': '#B8C0FF',   # Soft Periwinkle Blue
+    'C2: First-Time Buyers': '#FFD6A5',  # Soft Peach
+    'C3: Corporate Buyers': '#CAFFBF',   # Soft Mint Green
+    'C4: Luxury Investors': '#FFADAD'    # Soft Pastel Pink
+}
 
 # Data Loading Function
 @st.cache_data
@@ -44,18 +83,23 @@ def load_data():
     if os.path.exists(file_path):
         df = pd.read_csv(file_path)
     else:
-        # Fallback generator if segmented_clients.csv is missing
+        # Fallback benchmark generator if segmented_clients.csv is missing
         np.random.seed(42)
         n = 2000
         client_types = np.random.choice(['Individual', 'Company'], size=n, p=[0.75, 0.25])
         genders = np.random.choice(['Male', 'Female', 'Other'], size=n, p=[0.48, 0.48, 0.04])
         countries = np.random.choice(['United States', 'United Kingdom', 'UAE', 'Germany', 'Singapore', 'Canada'], size=n)
         regions = np.random.choice(['North America', 'Europe', 'Middle East', 'Asia Pacific'], size=n)
-        dobs = pd.to_datetime(np.random.randint(pd.to_datetime('1955-01-01').value, pd.to_datetime('2002-12-31').value, size=n))
+        
+        years = np.random.randint(1955, 2003, size=n)
+        months = np.random.randint(1, 13, size=n)
+        days = np.random.randint(1, 29, size=n)
+        dobs = [f"{y:04d}-{m:02d}-{d:02d}" for y, m, d in zip(years, months, days)]
+        
         acq_purposes = np.random.choice(['Investment', 'Personal use'], size=n, p=[0.55, 0.45])
         loans = np.random.choice(['Yes', 'No'], size=n, p=[0.40, 0.60])
         referrals = np.random.choice(['Website', 'Agency', 'Client Referral', 'Social Media'], size=n)
-        satisfaction = np.random.choice([1, 2, 3, 4, 5], size=n, p=[0.05, 0.10, 0.20, 0.40, 0.25])
+        satisfaction = np.random.choice([1.0, 2.0, 3.0, 4.0, 5.0], size=n, p=[0.05, 0.10, 0.20, 0.40, 0.25])
         
         df = pd.DataFrame({
             'client_id': [f'CL_{i:04d}' for i in range(1, n + 1)],
@@ -63,7 +107,7 @@ def load_data():
             'gender': genders,
             'country': countries,
             'region': regions,
-            'date_of_birth': dobs.strftime('%Y-%m-%d'),
+            'date_of_birth': dobs,
             'acquisition_purpose': acq_purposes,
             'loan_applied': loans,
             'referral_channel': referrals,
@@ -107,7 +151,7 @@ st.markdown("<div class='main-header'>🏢 Parcl Real Estate Market Intelligence
 st.markdown("<div class='sub-header'>Machine Learning Based Buyer Segmentation & Investment Profiling Dashboard</div>", unsafe_allow_html=True)
 st.divider()
 
-# Sidebar Interactive Filters (As per Slide 13 specifications)
+# Sidebar Interactive Filters
 st.sidebar.header("🔍 Filter Options")
 
 all_countries = ['All'] + sorted(list(df_raw['country'].unique()))
@@ -150,7 +194,7 @@ with col4:
 
 st.markdown("<br>", unsafe_allow_html=True)
 
-# Main Navigation Tabs (4 Core Modules as per Slide 12)
+# Main Navigation Tabs
 tab1, tab2, tab3, tab4 = st.tabs([
     "📊 Buyer Segmentation Overview",
     "💼 Investor Behavior Dashboard",
@@ -180,10 +224,11 @@ with tab1:
                 names='Persona',
                 title="Proportion of Buyer Personas",
                 color='Persona',
-                color_discrete_sequence=px.colors.qualitative.Bold,
+                color_discrete_map=PASTEL_PERSONA_MAP,
                 hole=0.4
             )
             fig_pie.update_traces(textinfo='percent+label')
+            fig_pie.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
             st.plotly_chart(fig_pie, use_container_width=True)
             
         with m1_col2:
@@ -194,9 +239,15 @@ with tab1:
                 color='Persona',
                 title="Client Count by Persona Segment",
                 text='Count',
-                color_discrete_sequence=px.colors.qualitative.Bold
+                color_discrete_map=PASTEL_PERSONA_MAP
             )
-            fig_bar.update_layout(xaxis_title="", yaxis_title="Number of Clients", showlegend=False)
+            fig_bar.update_layout(
+                xaxis_title="", 
+                yaxis_title="Number of Clients", 
+                showlegend=False,
+                paper_bgcolor='rgba(0,0,0,0)', 
+                plot_bgcolor='rgba(0,0,0,0)'
+            )
             st.plotly_chart(fig_bar, use_container_width=True)
 
 # ---------------------------------------------------------
@@ -222,9 +273,9 @@ with tab2:
                 barmode='group',
                 title="Mortgage Loan Reliance (Loan Applied)",
                 labels={'buyer_persona': 'Persona Segment', 'count': 'Client Count', 'loan_applied': 'Applied for Loan'},
-                color_discrete_map={'Yes': '#EF4444', 'No': '#10B981'}
+                color_discrete_map={'Yes': '#FFADAD', 'No': '#CAFFBF'}
             )
-            fig_loan.update_layout(xaxis_title="")
+            fig_loan.update_layout(xaxis_title="", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
             st.plotly_chart(fig_loan, use_container_width=True)
             
         with m2_col2:
@@ -238,9 +289,9 @@ with tab2:
                 barmode='stack',
                 title="Acquisition Purpose Intent Breakdown",
                 labels={'buyer_persona': 'Persona Segment', 'count': 'Client Count', 'acquisition_purpose': 'Intent'},
-                color_discrete_map={'Investment': '#3B82F6', 'Personal use': '#F59E0B'}
+                color_discrete_map={'Investment': '#B8C0FF', 'Personal use': '#FFD6A5'}
             )
-            fig_purpose.update_layout(xaxis_title="")
+            fig_purpose.update_layout(xaxis_title="", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
             st.plotly_chart(fig_purpose, use_container_width=True)
 
 # ---------------------------------------------------------
@@ -264,8 +315,9 @@ with tab3:
                 color='buyer_persona',
                 title="Regional Buyer Concentration by Persona",
                 labels={'region': 'Geographic Region', 'count': 'Client Count'},
-                color_discrete_sequence=px.colors.qualitative.Vivid
+                color_discrete_map=PASTEL_PERSONA_MAP
             )
+            fig_geo.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
             st.plotly_chart(fig_geo, use_container_width=True)
             
         with m3_col2:
@@ -277,8 +329,9 @@ with tab3:
                 locationmode='country names',
                 color='Client Count',
                 title="Global Buyer Origin Density Map",
-                color_continuous_scale='Viridis'
+                color_continuous_scale='Mint'
             )
+            fig_country.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
             st.plotly_chart(fig_country, use_container_width=True)
 
 # ---------------------------------------------------------
