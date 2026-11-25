@@ -3,49 +3,89 @@ import pandas as pd
 import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
-import os
 import glob
+import os
 
-# Set Streamlit Page Configuration
+# ---------------------------------------------------------
+# STREAMLIT PAGE CONFIGURATION
+# ---------------------------------------------------------
 st.set_page_config(
-    page_title="Parcl Real Estate Intelligence | Buyer & Property Analytics",
+    page_title="Parcl Real Estate Intelligence | Market Analytics",
     page_icon="🏢",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# Custom High-Contrast CSS Styling (Clean & Accessible - No Hacky Overrides)
+# ---------------------------------------------------------
+# CUSTOM STYLING (LIGHT BLUE BACKGROUND & HIGH CONTRAST UI)
+# ---------------------------------------------------------
 st.markdown("""
 <style>
-    .main-title {
-        font-size: 2.2rem;
+    /* Main App Light Blue Background */
+    .stApp {
+        background-color: #EBF5FF !important;
+    }
+    
+    /* Sidebar Styling */
+    section[data-testid="stSidebar"] {
+        background-color: #D6E8FA !important;
+        border-right: 1px solid #BFDBFE !important;
+    }
+    
+    /* Headers & Text */
+    .main-header {
+        font-size: 2.3rem;
         font-weight: 800;
-        color: #861645;
-        margin-bottom: 0.1rem;
+        color: #0F2942;
+        margin-bottom: 0.2rem;
+        letter-spacing: -0.5px;
     }
-    .sub-title {
+    .sub-header {
         font-size: 1.05rem;
-        font-weight: 500;
-        color: #354A57;
-        margin-bottom: 1.2rem;
+        color: #335C81;
+        margin-bottom: 1.5rem;
+        font-weight: 600;
     }
-    div[data-testid="stMetricValue"] {
+    
+    /* Custom Card Containers */
+    .custom-card {
+        background-color: #FFFFFF;
+        border: 2px solid #BEE3F8;
+        border-radius: 12px;
+        padding: 18px;
+        box-shadow: 0 4px 12px rgba(15, 41, 66, 0.06);
+        text-align: center;
+        margin-bottom: 15px;
+    }
+    .card-title {
+        font-size: 0.9rem;
         font-weight: 700;
-        color: #861645;
+        color: #4A5568;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    .card-value {
+        font-size: 1.8rem;
+        font-weight: 800;
+        color: #0F2942;
+        margin-top: 5px;
     }
 </style>
 """, unsafe_allow_html=True)
 
 # ---------------------------------------------------------
-# DATA LOADING & MERGING PIPELINE
+# DATA LOADING & PREPROCESSING
 # ---------------------------------------------------------
 @st.cache_data
-def load_data():
-    # 1. Load Clients / Segmented Clients
-    client_file = "segmented_clients.csv" if os.path.exists("segmented_clients.csv") else "clients.csv"
+def load_all_data():
+    # 1. Load Client Dataset
+    client_file = "segmented_clients.csv"
     if os.path.exists(client_file):
         df_clients = pd.read_csv(client_file)
+    elif os.path.exists("clients.csv"):
+        df_clients = pd.read_csv("clients.csv")
     else:
+        # Fallback benchmark generator
         np.random.seed(42)
         n = 2000
         client_types = np.random.choice(['Individual', 'Company'], size=n, p=[0.75, 0.25])
@@ -71,147 +111,203 @@ def load_data():
             'satisfaction_score': satisfaction
         })
         
-    if 'age' not in df_clients.columns and 'date_of_birth' in df_clients.columns:
-        df_clients['age'] = 2026 - pd.to_datetime(df_clients['date_of_birth'], errors='coerce').dt.year
-        df_clients['age'] = df_clients['age'].fillna(35)
+        df_clients['age'] = 2026 - pd.to_datetime(df_clients['date_of_birth']).dt.year
         
-    def assign_persona(row):
-        c_type = str(row.get('client_type', '')).lower()
-        purpose = str(row.get('acquisition_purpose', '')).lower()
-        loan = str(row.get('loan_applied', '')).lower()
-        sat = row.get('satisfaction_score', 3)
-        age = row.get('age', 35)
-        
-        if c_type in ['company', 'corporate']:
-            return 'C3: Corporate Buyers'
-        elif sat >= 4.5 and purpose == 'investment':
-            return 'C4: Luxury Investors'
-        elif loan == 'yes' and age <= 38:
-            return 'C2: First-Time Buyers'
-        elif purpose == 'investment':
-            return 'C1: Global Investors'
-        else:
-            return 'C2: First-Time Buyers'
+        def assign_persona(row):
+            c_type = str(row['client_type']).lower()
+            purpose = str(row['acquisition_purpose']).lower()
+            loan = str(row['loan_applied']).lower()
+            sat = row['satisfaction_score']
+            age = row['age']
+            
+            if c_type == 'company' or c_type == 'corporate':
+                return 'C3: Corporate Buyers'
+            elif sat >= 4.5 and purpose == 'investment':
+                return 'C4: Luxury Investors'
+            elif loan == 'yes' and age <= 38:
+                return 'C2: First-Time Buyers'
+            elif purpose == 'investment':
+                return 'C1: Global Investors'
+            else:
+                return 'C2: First-Time Buyers'
 
-    if 'buyer_persona' not in df_clients.columns:
         df_clients['buyer_persona'] = df_clients.apply(assign_persona, axis=1)
 
-    # 2. Load Properties Dataset (Parts 1-5 or single properties.csv)
-    prop_files = sorted(glob.glob("properties_part_*.csv"))
+    # Clean client_id format
+    df_clients['client_id_norm'] = df_clients['client_id'].astype(str).str.strip().str.upper()
+
+    # 2. Load Property Files
+    prop_files = sorted(glob.glob("properties_part_*.csv")) or sorted(glob.glob("/workspace/knowledge/properties_part_*.csv"))
     if prop_files:
         df_props = pd.concat([pd.read_csv(f) for f in prop_files], ignore_index=True)
     elif os.path.exists("properties.csv"):
         df_props = pd.read_csv("properties.csv")
     else:
-        df_props = pd.DataFrame()
+        # Fallback properties dataset
+        np.random.seed(42)
+        m = 5000
+        df_props = pd.DataFrame({
+            'listing_id': np.arange(1000, 1000 + m),
+            'tower_number': np.random.randint(1, 21, size=m),
+            'unit_category': np.random.choice(['Apartment', 'Office'], size=m, p=[0.85, 0.15]),
+            'floor_area_sqft': np.random.uniform(400, 2000, size=m).round(2),
+            'listing_status': np.random.choice(['Sold', 'Available'], size=m, p=[0.73, 0.27]),
+            'client_ref': [f'CL_{i:04d}' for i in np.random.randint(1, 2001, size=m)]
+        })
+        base_rate = np.where(df_props['unit_category'] == 'Office', 340, 290)
+        df_props['price_per_sqft'] = base_rate + np.random.normal(0, 15, size=m)
+        df_props['sale_price'] = (df_props['floor_area_sqft'] * df_props['price_per_sqft']).round(2)
+        df_props['sale_price'] = df_props['sale_price'].apply(lambda x: f"${x:,.2f}")
 
-    if not df_props.empty:
-        # Clean Sale Price
-        if 'sale_price' in df_props.columns:
-            df_props['sale_price_clean'] = df_props['sale_price'].astype(str).str.replace('$', '', regex=False).str.replace(',', '', regex=False).astype(float)
-        else:
-            df_props['sale_price_clean'] = df_props['floor_area_sqft'] * 300.0
-
-        # Calculate Price / sqft
-        if 'floor_area_sqft' in df_props.columns and 'sale_price_clean' in df_props.columns:
-            df_props['price_per_sqft'] = (df_props['sale_price_clean'] / df_props['floor_area_sqft']).round(2)
-
-        # Normalize client_ref key for merging
-        if 'client_ref' in df_props.columns:
-            def norm_ref(val):
-                if pd.isna(val) or val is None:
-                    return ""
-                s = str(val).strip().upper()
-                if s.startswith('C') and not s.startswith('CL_') and len(s) > 1 and s[1:].isdigit():
-                    try:
-                        return f"CL_{int(s[1:]):04d}"
-                    except ValueError:
-                        return s
-                return s
-            df_props['client_ref_norm'] = df_props['client_ref'].apply(norm_ref)
-
-            merged = pd.merge(
-                df_props,
-                df_clients[['client_id', 'buyer_persona', 'acquisition_purpose', 'loan_applied', 'country', 'region']],
-                left_on='client_ref_norm',
-                right_on='client_id',
-                how='left'
-            )
-            merged['buyer_persona'] = merged['buyer_persona'].fillna('C1: Global Investors')
-        else:
-            merged = df_props.copy()
-            merged['buyer_persona'] = 'C1: Global Investors'
+    # Process Numeric Sale Price
+    if 'sale_price' in df_props.columns:
+        df_props['sale_price_clean'] = (
+            df_props['sale_price']
+            .astype(str)
+            .str.replace('$', '', regex=False)
+            .str.replace(',', '', regex=False)
+            .astype(float)
+        )
     else:
-        merged = pd.DataFrame()
+        df_props['sale_price_clean'] = df_props['floor_area_sqft'] * 300.0
 
-    return df_clients, merged
+    # Calculate Price per SqFt
+    df_props['price_per_sqft'] = (df_props['sale_price_clean'] / df_props['floor_area_sqft']).round(2)
 
-df_clients, df_props = load_data()
+    # Normalize client_ref for joining
+    def normalize_ref(val):
+        if pd.isna(val) or val is None:
+            return ""
+        s = str(val).strip().upper()
+        if s.startswith('C') and not s.startswith('CL_') and len(s) > 1 and s[1:].isdigit():
+            try:
+                return f"CL_{int(s[1:]):04d}"
+            except ValueError:
+                return s
+        return s
 
-# Palette Definition from cp.jpeg
-COLOR_MAP = {
+    df_props['client_ref_norm'] = df_props['client_ref'].apply(normalize_ref)
+
+    # Merge Properties with Client Profiles
+    df_merged = pd.merge(
+        df_props,
+        df_clients[['client_id_norm', 'client_type', 'country', 'region', 'acquisition_purpose', 'loan_applied', 'satisfaction_score', 'buyer_persona']],
+        left_on='client_ref_norm',
+        right_on='client_id_norm',
+        how='left'
+    )
+    
+    df_merged['buyer_persona'] = df_merged['buyer_persona'].fillna('C1: Global Investors')
+    df_merged['unit_category'] = df_merged['unit_category'].fillna('Apartment')
+    df_merged['listing_status'] = df_merged['listing_status'].fillna('Sold')
+
+    return df_clients, df_merged
+
+df_clients_raw, df_merged_raw = load_all_data()
+
+# ---------------------------------------------------------
+# COLOR PALETTE MAPPING (FROM cp.jpeg)
+# ---------------------------------------------------------
+COLOR_PALETTE = {
     'C1: Global Investors': '#861645',   # Rich Magenta Purple
-    'C2: First-Time Buyers': '#F2822E',  # Sunset Orange
-    'C3: Corporate Buyers': '#354A57',   # Slate Teal
-    'C4: Luxury Investors': '#85A611'    # Olive Lime
+    'C2: First-Time Buyers': '#F2822E',  # Vibrant Sunset Orange
+    'C3: Corporate Buyers': '#354A57',   # Deep Slate Teal
+    'C4: Luxury Investors': '#85A611',   # Chartreuse / Olive Lime
+    'Apartment': '#354A57',
+    'Office': '#861645',
+    'Sold': '#85A611',
+    'Available': '#F2822E'
 }
-COLOR_SEQ = ['#861645', '#F2822E', '#354A57', '#85A611', '#9B3245']
 
 # ---------------------------------------------------------
-# HEADER & SIDEBAR FILTERS
+# HEADER SECTION
 # ---------------------------------------------------------
-st.markdown("<div class='main-title'>🏢 Parcl Real Estate Market Intelligence</div>", unsafe_allow_html=True)
-st.markdown("<div class='sub-title'>Machine Learning Buyer Segmentation & Property Portfolio Analytics</div>", unsafe_allow_html=True)
-st.divider()
+st.markdown("<div class='main-header'>🏢 Parcl Real Estate Market Intelligence</div>", unsafe_allow_html=True)
+st.markdown("<div class='sub-header'>Machine Learning Buyer Segmentation & Property Portfolio Intelligence Dashboard</div>", unsafe_allow_html=True)
 
+# ---------------------------------------------------------
+# SIDEBAR FILTERS
+# ---------------------------------------------------------
 st.sidebar.header("🔍 Filter Options")
 
-all_countries = ['All'] + sorted(list(df_clients['country'].dropna().unique()))
+all_countries = ['All'] + sorted(list(df_clients_raw['country'].dropna().unique()))
 selected_country = st.sidebar.selectbox("Country of Residence", all_countries)
 
-all_regions = ['All'] + sorted(list(df_clients['region'].dropna().unique()))
+all_regions = ['All'] + sorted(list(df_clients_raw['region'].dropna().unique()))
 selected_region = st.sidebar.selectbox("Geographic Region", all_regions)
 
-all_purposes = ['All'] + sorted(list(df_clients['acquisition_purpose'].dropna().unique()))
+all_purposes = ['All'] + sorted(list(df_clients_raw['acquisition_purpose'].dropna().unique()))
 selected_purpose = st.sidebar.selectbox("Acquisition Purpose", all_purposes)
 
-all_types = ['All'] + sorted(list(df_clients['client_type'].dropna().unique()))
-selected_client_type = st.sidebar.selectbox("Client Type", all_types)
+all_categories = ['All'] + sorted(list(df_merged_raw['unit_category'].dropna().unique()))
+selected_category = st.sidebar.selectbox("Unit Category", all_categories)
 
-# Filter Datasets
-df_c_filtered = df_clients.copy()
+# Apply Filter Logic
+df_clients_filtered = df_clients_raw.copy()
+df_merged_filtered = df_merged_raw.copy()
+
 if selected_country != 'All':
-    df_c_filtered = df_c_filtered[df_c_filtered['country'] == selected_country]
+    df_clients_filtered = df_clients_filtered[df_clients_filtered['country'] == selected_country]
+    df_merged_filtered = df_merged_filtered[df_merged_filtered['country'] == selected_country]
+
 if selected_region != 'All':
-    df_c_filtered = df_c_filtered[df_c_filtered['region'] == selected_region]
+    df_clients_filtered = df_clients_filtered[df_clients_filtered['region'] == selected_region]
+    df_merged_filtered = df_merged_filtered[df_merged_filtered['region'] == selected_region]
+
 if selected_purpose != 'All':
-    df_c_filtered = df_c_filtered[df_c_filtered['acquisition_purpose'] == selected_purpose]
-if selected_client_type != 'All':
-    df_c_filtered = df_c_filtered[df_c_filtered['client_type'] == selected_client_type]
+    df_clients_filtered = df_clients_filtered[df_clients_filtered['acquisition_purpose'] == selected_purpose]
+    df_merged_filtered = df_merged_filtered[df_merged_filtered['acquisition_purpose'] == selected_purpose]
 
-df_p_filtered = df_props.copy() if not df_props.empty else pd.DataFrame()
-if not df_p_filtered.empty and 'country' in df_p_filtered.columns:
-    if selected_country != 'All':
-        df_p_filtered = df_p_filtered[df_p_filtered['country'] == selected_country]
-    if selected_region != 'All':
-        df_p_filtered = df_p_filtered[df_p_filtered['region'] == selected_region]
+if selected_category != 'All':
+    df_merged_filtered = df_merged_filtered[df_merged_filtered['unit_category'] == selected_category]
 
-# TOP KPI METRICS
+# ---------------------------------------------------------
+# TOP KPI SUMMARY METRICS
+# ---------------------------------------------------------
 kpi1, kpi2, kpi3, kpi4, kpi5 = st.columns(5)
+
 with kpi1:
-    st.metric("Total Clients", f"{len(df_c_filtered):,}")
+    st.markdown(f"""
+    <div class='custom-card' style='border-top: 4px solid #354A57;'>
+        <div class='card-title'>Total Clients</div>
+        <div class='card-value'>{len(df_clients_filtered):,}</div>
+    </div>
+    """, unsafe_allow_html=True)
+
 with kpi2:
-    total_props = len(df_p_filtered) if not df_p_filtered.empty else 0
-    st.metric("Total Properties", f"{total_props:,}")
+    st.markdown(f"""
+    <div class='custom-card' style='border-top: 4px solid #861645;'>
+        <div class='card-title'>Total Properties</div>
+        <div class='card-value'>{len(df_merged_filtered):,}</div>
+    </div>
+    """, unsafe_allow_html=True)
+
 with kpi3:
-    avg_price = df_p_filtered['sale_price_clean'].mean() if not df_p_filtered.empty else 0
-    st.metric("Avg Sale Price", f"${avg_price:,.0f}")
+    avg_price = df_merged_filtered['sale_price_clean'].mean() if len(df_merged_filtered) > 0 else 0
+    st.markdown(f"""
+    <div class='custom-card' style='border-top: 4px solid #F2822E;'>
+        <div class='card-title'>Avg Sale Price</div>
+        <div class='card-value'>${avg_price:,.0f}</div>
+    </div>
+    """, unsafe_allow_html=True)
+
 with kpi4:
-    avg_psqft = df_p_filtered['price_per_sqft'].mean() if not df_p_filtered.empty else 0
-    st.metric("Avg Price / SqFt", f"${avg_psqft:.1f}")
+    avg_sqft_price = df_merged_filtered['price_per_sqft'].mean() if len(df_merged_filtered) > 0 else 0
+    st.markdown(f"""
+    <div class='custom-card' style='border-top: 4px solid #85A611;'>
+        <div class='card-title'>Avg Price / SqFt</div>
+        <div class='card-value'>${avg_sqft_price:.1f}</div>
+    </div>
+    """, unsafe_allow_html=True)
+
 with kpi5:
-    sold_ratio = (df_p_filtered['listing_status'] == 'Sold').mean() * 100 if not df_p_filtered.empty and 'listing_status' in df_p_filtered.columns else 0
-    st.metric("Sold Inventory %", f"{sold_ratio:.1f}%")
+    sold_ratio = (df_merged_filtered['listing_status'] == 'Sold').mean() * 100 if len(df_merged_filtered) > 0 else 0
+    st.markdown(f"""
+    <div class='custom-card' style='border-top: 4px solid #354A57;'>
+        <div class='card-title'>Sold Ratio</div>
+        <div class='card-value'>{sold_ratio:.1f}%</div>
+    </div>
+    """, unsafe_allow_html=True)
 
 st.markdown("<br>", unsafe_allow_html=True)
 
@@ -226,230 +322,192 @@ tab1, tab2, tab3, tab4, tab5 = st.tabs([
     "🔍 Strategic Insights"
 ])
 
-# MODULE 1: BUYER SEGMENTATION
+# MODULE 1: BUYER SEGMENTATION OVERVIEW
 with tab1:
-    st.subheader("Buyer Segment Distribution & Clustering Breakdown")
-    st.write("Overview of client proportions classified across the 4 ML-derived buyer personas.")
-    
-    if len(df_c_filtered) == 0:
-        st.warning("No client records match the current sidebar filter criteria.")
+    st.subheader("Buyer Segment Distribution & Persona Breakdown")
+    if len(df_clients_filtered) == 0:
+        st.warning("No client records match the selected filter criteria.")
     else:
-        col_a, col_b = st.columns(2)
-        with col_a:
-            seg_counts = df_c_filtered['buyer_persona'].value_counts().reset_index()
-            seg_counts.columns = ['Persona', 'Count']
+        c1, c2 = st.columns(2)
+        with c1:
+            segment_counts = df_clients_filtered['buyer_persona'].value_counts().reset_index()
+            segment_counts.columns = ['Persona', 'Count']
             
             fig_pie = px.pie(
-                seg_counts, 
-                values='Count', 
+                segment_counts,
+                values='Count',
                 names='Persona',
                 title="Proportion of Buyer Personas",
                 color='Persona',
-                color_discrete_map=COLOR_MAP,
+                color_discrete_map=COLOR_PALETTE,
                 hole=0.4
             )
-            fig_pie.update_traces(textinfo='percent+label')
+            fig_pie.update_traces(textinfo='percent+label', marker=dict(line=dict(color='#FFFFFF', width=2)))
+            fig_pie.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
             st.plotly_chart(fig_pie, use_container_width=True)
-            
-        with col_b:
+
+        with c2:
             fig_bar = px.bar(
-                seg_counts,
+                segment_counts,
                 x='Persona',
                 y='Count',
                 color='Persona',
-                title="Client Count by Persona Segment",
+                title="Client Count by Persona Cohort",
                 text='Count',
-                color_discrete_map=COLOR_MAP
+                color_discrete_map=COLOR_PALETTE
             )
-            fig_bar.update_layout(xaxis_title="", yaxis_title="Number of Clients", showlegend=False)
+            fig_bar.update_layout(xaxis_title="", yaxis_title="Number of Clients", showlegend=False, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
             st.plotly_chart(fig_bar, use_container_width=True)
 
 # MODULE 2: INVESTOR BEHAVIOR
 with tab2:
-    st.subheader("Financial & Behavioral Patterns by Persona")
-    st.write("Examines debt dependency (loan reliance) and purchasing motivations across client cohorts.")
-    
-    if len(df_c_filtered) == 0:
-        st.warning("No client records match the current sidebar filter criteria.")
+    st.subheader("Financing Dependency & Acquisition Intent")
+    if len(df_clients_filtered) == 0:
+        st.warning("No client records match the selected filter criteria.")
     else:
-        col_c, col_d = st.columns(2)
-        with col_c:
-            loan_df = df_c_filtered.groupby(['buyer_persona', 'loan_applied']).size().reset_index(name='count')
+        c1, c2 = st.columns(2)
+        with c1:
+            loan_df = df_clients_filtered.groupby(['buyer_persona', 'loan_applied']).size().reset_index(name='count')
             fig_loan = px.bar(
                 loan_df,
                 x='buyer_persona',
                 y='count',
                 color='loan_applied',
                 barmode='group',
-                title="Mortgage Loan Reliance (Loan Applied)",
-                labels={'buyer_persona': 'Persona Segment', 'count': 'Client Count', 'loan_applied': 'Loan Applied'},
+                title="Mortgage Loan Reliance",
                 color_discrete_map={'Yes': '#F2822E', 'No': '#354A57'}
             )
-            fig_loan.update_layout(xaxis_title="")
+            fig_loan.update_layout(xaxis_title="", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
             st.plotly_chart(fig_loan, use_container_width=True)
-            
-        with col_d:
-            purpose_df = df_c_filtered.groupby(['buyer_persona', 'acquisition_purpose']).size().reset_index(name='count')
+
+        with c2:
+            purpose_df = df_clients_filtered.groupby(['buyer_persona', 'acquisition_purpose']).size().reset_index(name='count')
             fig_purpose = px.bar(
                 purpose_df,
                 x='buyer_persona',
                 y='count',
                 color='acquisition_purpose',
                 barmode='stack',
-                title="Acquisition Purpose Intent Breakdown",
-                labels={'buyer_persona': 'Persona Segment', 'count': 'Client Count', 'acquisition_purpose': 'Intent'},
+                title="Acquisition Purpose Breakdown",
                 color_discrete_map={'Investment': '#861645', 'Personal use': '#85A611'}
             )
-            fig_purpose.update_layout(xaxis_title="")
+            fig_purpose.update_layout(xaxis_title="", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
             st.plotly_chart(fig_purpose, use_container_width=True)
 
-# MODULE 3: PROPERTY PORTFOLIO
+# MODULE 3: PROPERTY PORTFOLIO ANALYTICS
 with tab3:
-    st.subheader("Property Transaction & Portfolio Analytics")
-    st.write("Valuation distribution, tower pricing metrics, and sales volume by buyer persona.")
-    
-    if df_p_filtered.empty:
-        st.info("Property listings data is loading or missing.")
+    st.subheader("Property Valuation & Capital Distribution")
+    if len(df_merged_filtered) == 0:
+        st.warning("No property records match the selected filter criteria.")
     else:
-        col_e, col_f = st.columns(2)
-        with col_e:
+        c1, c2 = st.columns(2)
+        with c1:
             fig_box = px.box(
-                df_p_filtered,
+                df_merged_filtered,
                 x='unit_category',
                 y='sale_price_clean',
                 color='unit_category',
-                title="Property Price Distribution by Unit Category",
-                labels={'unit_category': 'Unit Category', 'sale_price_clean': 'Sale Price ($)'},
-                color_discrete_sequence=['#861645', '#F2822E']
+                title="Property Price Range by Unit Category",
+                color_discrete_map=COLOR_PALETTE,
+                labels={'sale_price_clean': 'Sale Price ($)', 'unit_category': 'Category'}
             )
+            fig_box.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
             st.plotly_chart(fig_box, use_container_width=True)
-            
-        with col_f:
-            vol_df = df_p_filtered.groupby('buyer_persona')['sale_price_clean'].sum().reset_index()
-            vol_df['volume_millions'] = vol_df['sale_price_clean'] / 1e6
-            fig_vol = px.bar(
-                vol_df,
-                x='buyer_persona',
-                y='volume_millions',
-                color='buyer_persona',
-                title="Total Capital Volume ($ Millions) by Persona",
-                labels={'buyer_persona': '', 'volume_millions': 'Volume ($M)'},
-                color_discrete_map=COLOR_MAP,
-                text_auto='.1f'
-            )
-            fig_vol.update_layout(showlegend=False)
-            st.plotly_chart(fig_vol, use_container_width=True)
 
-        col_g, col_h = st.columns(2)
-        with col_g:
-            tower_df = df_p_filtered.groupby('tower_number')['price_per_sqft'].mean().reset_index()
-            fig_tower = px.line(
-                tower_df,
-                x='tower_number',
-                y='price_per_sqft',
-                title="Average Valuation ($ / SqFt) Across Towers 1 - 20",
-                labels={'tower_number': 'Tower Number', 'price_per_sqft': 'Avg Price / SqFt ($)'},
-                markers=True
+        with c2:
+            persona_vol = df_merged_filtered.groupby('buyer_persona')['sale_price_clean'].sum().reset_index()
+            persona_vol['Volume_M'] = (persona_vol['sale_price_clean'] / 1e6).round(2)
+            fig_vol = px.bar(
+                persona_vol,
+                x='buyer_persona',
+                y='Volume_M',
+                color='buyer_persona',
+                title="Total Investment Volume by Persona ($ Millions)",
+                text='Volume_M',
+                color_discrete_map=COLOR_PALETTE
             )
-            fig_tower.update_traces(line_color='#861645', marker_color='#F2822E', marker_size=8)
-            st.plotly_chart(fig_tower, use_container_width=True)
-            
-        with col_h:
-            status_df = df_p_filtered['listing_status'].value_counts().reset_index()
-            status_df.columns = ['Status', 'Count']
-            fig_status = px.pie(
-                status_df,
-                values='Count',
-                names='Status',
-                title="Inventory Status: Sold vs. Available",
-                color='Status',
-                color_discrete_map={'Sold': '#861645', 'Available': '#85A611'},
-                hole=0.4
-            )
-            st.plotly_chart(fig_status, use_container_width=True)
+            fig_vol.update_layout(xaxis_title="", yaxis_title="Capital Volume ($M)", showlegend=False, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
+            st.plotly_chart(fig_vol, use_container_width=True)
 
 # MODULE 4: GEOGRAPHIC ORIGIN
 with tab4:
-    st.subheader("Regional Capital Distribution & Geographic Origin")
-    st.write("Spatial tracking of domestic vs. cross-border real estate investor activity.")
-    
-    if len(df_c_filtered) == 0:
-        st.warning("No client records match the current sidebar filter criteria.")
+    st.subheader("Geographic Origin & Regional Concentration")
+    if len(df_clients_filtered) == 0:
+        st.warning("No client records match the selected filter criteria.")
     else:
-        col_i, col_j = st.columns(2)
-        with col_i:
-            geo_region = df_c_filtered.groupby(['region', 'buyer_persona']).size().reset_index(name='count')
+        c1, c2 = st.columns(2)
+        with c1:
+            geo_region = df_clients_filtered.groupby(['region', 'buyer_persona']).size().reset_index(name='count')
             fig_geo = px.bar(
                 geo_region,
                 x='region',
                 y='count',
                 color='buyer_persona',
-                title="Regional Buyer Concentration by Persona",
-                labels={'region': 'Geographic Region', 'count': 'Client Count'},
-                color_discrete_map=COLOR_MAP
+                title="Regional Buyer Concentration",
+                color_discrete_map=COLOR_PALETTE
             )
+            fig_geo.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
             st.plotly_chart(fig_geo, use_container_width=True)
-            
-        with col_j:
-            country_df = df_c_filtered['country'].value_counts().reset_index()
-            country_df.columns = ['Country', 'Client Count']
+
+        with c2:
+            country_df = df_clients_filtered['country'].value_counts().reset_index()
+            country_df.columns = ['Country', 'Count']
             fig_country = px.choropleth(
                 country_df,
                 locations='Country',
                 locationmode='country names',
-                color='Client Count',
+                color='Count',
                 title="Global Buyer Origin Density Map",
-                color_continuous_scale=['#354A57', '#861645', '#F2822E']
+                color_continuous_scale=['#BEE3F8', '#354A57', '#861645']
             )
+            fig_country.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)')
             st.plotly_chart(fig_country, use_container_width=True)
 
 # MODULE 5: STRATEGIC INSIGHTS
 with tab5:
-    st.subheader("Descriptive Metrics & Strategic Recommendations")
-    st.write("Statistical profiling and targeted business strategies for Parcl platform decision-makers.")
-    
-    if len(df_c_filtered) == 0:
-        st.warning("No client records match the current sidebar filter criteria.")
+    st.subheader("Cohort Metrics & Strategic Recommendations")
+    if len(df_clients_filtered) == 0:
+        st.warning("No client records match the selected filter criteria.")
     else:
-        stats_df = df_c_filtered.groupby('buyer_persona').agg(
+        stats_df = df_clients_filtered.groupby('buyer_persona').agg(
             Total_Clients=('client_id', 'count'),
             Avg_Age=('age', 'mean'),
             Avg_Satisfaction=('satisfaction_score', 'mean'),
             Loan_Applied_Pct=('loan_applied', lambda x: (x == 'Yes').mean() * 100),
             Investment_Intent_Pct=('acquisition_purpose', lambda x: (x == 'Investment').mean() * 100)
         ).reset_index()
-        
+
         stats_df['Avg_Age'] = stats_df['Avg_Age'].round(1)
         stats_df['Avg_Satisfaction'] = stats_df['Avg_Satisfaction'].round(2)
         stats_df['Loan_Applied_Pct'] = stats_df['Loan_Applied_Pct'].round(1).astype(str) + "%"
         stats_df['Investment_Intent_Pct'] = stats_df['Investment_Intent_Pct'].round(1).astype(str) + "%"
-        
+
         st.dataframe(stats_df, use_container_width=True)
-        
+
         st.divider()
-        st.subheader("💡 Strategic Recommendations for Parcl Platform")
-        
-        rec1, rec2 = st.columns(2)
-        with rec1:
+        st.subheader("💡 Strategic Recommendations")
+
+        r1, r2 = st.columns(2)
+        with r1:
             st.markdown("""
-            **C1: Global Investors** (Magenta `#861645`)
+            **C1: Global Investors**
             - *Strategy*: Cross-border yield syndication, tax-optimized currency escrow, high-cap commercial listings.
             - *Targeting*: International digital marketing in primary global financial hubs.
             
-            **C2: First-Time Buyers** (Sunset Orange `#F2822E`)
+            **C2: First-Time Buyers**
             - *Strategy*: Embedded mortgage comparison tools, introductory down-payment assistance calculators.
             - *Targeting*: Social media referral programs and localized housing affordability guides.
             """)
-        with rec2:
+        with r2:
             st.markdown("""
-            **C3: Corporate Buyers** (Slate Teal `#354A57`)
+            **C3: Corporate Buyers**
             - *Strategy*: Institutional API access, bulk multi-unit acquisition discounts, custom compliance reporting.
             - *Targeting*: Direct B2B enterprise sales and institutional real estate advisory.
             
-            **C4: Luxury Investors** (Olive Lime `#85A611`)
+            **C4: Luxury Investors**
             - *Strategy*: White-glove private wealth concierge, off-market premier listings, priority investor support.
             - *Targeting*: Exclusive investor summits and private wealth manager partnerships.
             """)
 
 st.sidebar.divider()
-st.sidebar.caption("Parcl Real Estate ML Engine v1.0 | Capstone Intelligence")
+st.sidebar.caption("Parcl Real Estate Intelligence | Unified Mentor Capstone")
